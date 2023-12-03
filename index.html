@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <title>Document</title>
+    <style>
+    /* Style for custom cursor */
+.custom-cursor {
+  cursor: url('path_to_your_custom_cursor_icon'), auto;
+}
+
+/* Style for initial icon */
+#initialIcon {
+  cursor: pointer;
+}
+
+/* Style for resizable text box */
+.textbox {
+  position: absolute;
+  resize: both;
+  overflow: auto;
+}
+
+/*  */
+.draggable-note {
+  cursor: move;
+  position: absolute;
+  border: 1px solid black;
+}
+
+.note-textarea {
+  width: 100%;
+  height: 80%;
+  display: none;
+  resize: both;
+  overflow: auto; 
+}
+
+.note-icon {
+  position: absolute;
+  top: 0;
+  right: 0;
+  cursor: pointer;
+}
+
+.close-note {
+  position: absolute;
+  bottom: 0;
+}
+
+
+
+
+#drawingCanvas {
+
+}
+
+#eraseOptions li {
+    display: none;
+}
+
+#eraseOptions:hover li {
+    display: block;
+}
+
+ .right-aligned {
+            position: absolute;
+            top: 0;
+            right: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .icon {
+            font-size: 24px;
+            margin: 5px;
+            cursor: pointer;
+        }
+
+        .erase-button {
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+        }
+
+
+
+        .resizable-box {
+    padding: 4px;
+    background: #ff0;
+    font-family: Arial, sans-serif; 
+    font-size: 14px; 
+    position: relative;
+  }
+
+
+  .ui-resizable-helper { border: 2px dotted #00F; }
+
+
+  .resizable-box:focus {
+    outline: 2px dashed #00f;
+  }
+
+        
+  .highlighted {
+      background-color: yellow;
+      color: red; 
+    }
+    </style>
+</head>
+<body>
+    <div class="right-aligned">
+        <i id="initialIcon" class="icon your-icon-class">📝</i>
+        <i id="noteIcon" class="icon note-icon-class">🗒️</i> 
+        <i id="drawIcon" class="icon draw-icon-class">🖌️</i> 
+        
+        <ul id="eraseOptions" class="icon" style="padding: 0; margin: 0; list-style: none;text-align: right;">
+            🧽
+            <li>
+                <button id="eraseAll" class="erase-button">🧽 Xóa Toàn Bộ</button>
+            </li>
+            <li>
+                <button id="eraseWithCursor" class="erase-button">🧽 Xóa Theo Con Trỏ Chuột</button>
+            </li>
+            <li>
+                <button id="eraseStroke" class="erase-button">🧽 Xóa Theo Từng Nét</button>
+            </li>
+        </ul>
+        <i class="icon" id="colorChangeButton" onclick="toggleTextHighlight()">✒️</i>
+    </div>
+    <canvas id="drawingCanvas" width="500" height="500" style="border:1px solid #000;display:none;"></canvas>
+    <div id="textContainer">
+        <p>
+          Lorem ipsum dolor sit, amet consectetur adipisicing elit. Illum soluta rem odio in eius eos, libero repellendus vel inventore voluptates!
+        </p>
+      </div>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+<script>
+    var isSelectingText = false;
+    var defaultColor = "yellow"; // Default color
+
+    var colorChangeButton = document.getElementById("colorChangeButton");
+    var textContainer = document.getElementById("textContainer");
+
+    colorChangeButton.addEventListener("click", function() {
+    isSelectingText = !isSelectingText; // Toggle the selection mode
+    if (isSelectingText) {
+        textContainer.style.cursor = "crosshair";
+        textContainer.style.userSelect = "text";
+    } else {
+        textContainer.style.cursor = "default";
+        textContainer.style.userSelect = "none";
+    }
+    });
+
+    textContainer.addEventListener("mouseup", function() {
+    if (isSelectingText) {
+        var selectedText = window.getSelection().toString();
+        if (selectedText !== "") {
+        var span = document.createElement("span");
+        span.style.backgroundColor = defaultColor;
+        span.className = "selected-text";
+        span.textContent = selectedText;
+        var range = window.getSelection().getRangeAt(0);
+        range.deleteContents();
+        range.insertNode(span);
+        }
+    }
+});
+
+
+
+    var strokes = []; 
+    var currentStroke = null; 
+
+
+
+
+    //
+    $(document).ready(function() {
+    $(".resizable-box").resizable({
+    handles: {
+        'nw': '.ui-resizable-nw',
+        'ne': '.ui-resizable-ne',
+        'sw': '.ui-resizable-sw',
+        'se': '.ui-resizable-se',
+        'n': '.ui-resizable-n',
+        'e': '.ui-resizable-e',
+        's': '.ui-resizable-s',
+        'w': '.ui-resizable-w'
+        }
+    });
+    var isIconClicked = false;
+
+    $("#initialIcon").click(function(event) {    
+        event.stopPropagation();
+        isIconClicked = true;
+    });
+
+  $(document).click(function(e) {
+    if (isIconClicked) {
+      var $textBox = $('<div style="cursor:pointer;" class="resizable-draggable-box"></div>');
+      $textBox.css({
+        "position": "absolute",
+        "top": e.pageY + 'px',
+        "left": e.pageX + 'px',
+        "min-width": "100px",
+        "min-height": "20px",
+        "border": "1px dashed black",
+        "padding": "5px"
+      });
+
+      var $container = $('<input placeholder="Nhập" class="textboxfield" type="text" style="width:99%;height:100%;border:none;outline:none;padding:0"></input>');
+      $textBox.append($container);
+      $('body').append($textBox);
+
+      // focus on input box
+      $textBox.focus();
+      $textBox.draggable().resizable({helper: "ui-resizable-helper"});
+
+      // handle not text note
+      $container.on('blur', function() {
+        if ($container.val().trim() === '') {
+          $textBox.remove();
+        }
+      });
+
+      // Reset flag
+      isIconClicked = false;
+    }
+  });
+});
+
+
+
+
+
+    // Handle note
+
+    var isIconNoteClicked = false;
+
+document.getElementById("noteIcon").addEventListener("click", function(event) {
+  event.stopPropagation();
+  isIconNoteClicked = true;
+});
+
+$(document).click(function(e) {
+  if (isIconNoteClicked) {
+    createNote(e); // Pass the click event to createNote
+  }
+});
+
+function createNote(e) {
+  var noteContainer = document.createElement("div");
+  noteContainer.classList.add("draggable-note");
+
+  var textArea = document.createElement("textarea");
+  textArea.classList.add("note-textarea");
+
+  var noteIcon = document.createElement("i");
+  noteIcon.classList.add("note-icon");
+  noteIcon.innerText = "🗒️";
+
+  noteIcon.onclick = function() {
+    textArea.style.display = textArea.style.display === "none" ? "block" : "none";
+  };
+
+  textArea.addEventListener("blur", function() {
+    if (textArea.value.trim() === "") {
+      document.body.removeChild(noteContainer);
+    }
+  });
+
+  noteContainer.appendChild(noteIcon);
+  noteContainer.style.top = e.pageY + 'px';
+  noteContainer.style.left = e.pageX + 'px';
+
+
+  noteContainer.appendChild(textArea);
+
+  document.body.appendChild(noteContainer);
+
+  makeDraggable(noteContainer);
+  isIconNoteClicked = false
+}
+
+
+function makeDraggable(elem) {
+  var offsetX, offsetY;
+  
+  elem.addEventListener('mousedown', function(e) {
+    offsetX = e.clientX - elem.getBoundingClientRect().left;
+    offsetY = e.clientY - elem.getBoundingClientRect().top;
+    document.addEventListener('mousemove', mouseMoveHandler);
+    document.addEventListener('mouseup', mouseUpHandler);
+  });
+
+  function mouseMoveHandler(e) {
+    elem.style.left = (e.clientX - offsetX) + 'px';
+    elem.style.top = (e.clientY - offsetY) + 'px';
+  }
+
+  function mouseUpHandler() {
+    document.removeEventListener('mousemove', mouseMoveHandler);
+    document.removeEventListener('mouseup', mouseUpHandler);
+  }
+}
+
+
+// handle draw
+document.getElementById("drawIcon").addEventListener("click", function() {
+  var canvas = document.getElementById("drawingCanvas");
+  canvas.style.display = 'block';
+  initDrawing(canvas);
+});
+
+function createResizableTextBox(x, y) {
+  var textBox = document.createElement("textarea");
+  textBox.classList.add("textbox");
+  textBox.style.left = x + 'px';
+  textBox.style.top = y + 'px';
+  document.body.appendChild(textBox);
+}
+
+// Initialize the drawing function on canvas
+function initDrawing(canvas) {
+  var ctx = canvas.getContext("2d");
+  var drawing = false;
+
+  canvas.onmousedown = function(e) {
+    drawing = true;
+    ctx.beginPath();
+    ctx.moveTo(e.clientX - canvas.offsetLeft, e.clientY - canvas.offsetTop);
+  };
+
+  canvas.onmousemove = function(e) {
+    if (drawing) {
+      ctx.lineTo(e.clientX - canvas.offsetLeft, e.clientY - canvas.offsetTop);
+      ctx.stroke();
+    }
+  };
+
+  canvas.onmouseup = function() {
+    drawing = false;
+  };
+}
+
+// Delete
+
+var canvas = document.getElementById('drawingCanvas');
+var ctx = canvas.getContext('2d');
+var erasing = false;
+
+// Delete All
+document.getElementById('eraseAll').addEventListener('click', function() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+});
+
+// Delete follow cursor
+document.getElementById('eraseWithCursor').addEventListener('click', function() {
+  erasing = true;
+  canvas.addEventListener('mousemove', eraseWithCursor);
+});
+
+function eraseWithCursor(e) {
+  if (erasing) {
+    var x = e.clientX - canvas.offsetLeft;
+    var y = e.clientY - canvas.offsetTop;
+    ctx.clearRect(x, y, 10, 10); // Kích thước của phần được xóa
+  }
+}
+
+// Stop deleting on mouse click
+canvas.addEventListener('mouseup', function() {
+  erasing = false;
+  canvas.removeEventListener('mousemove', eraseWithCursor);
+});
+
+// Delete by stroke
+document.getElementById('eraseStroke').addEventListener('click', function() {
+  //
+});
+
+
+
+</script>
+</html>
